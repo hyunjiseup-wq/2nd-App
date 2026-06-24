@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "name": "몽탄",
+    "area": "삼각지",
+    "category": "한식/고기",
+    "address": "서울 용산구 백범로99길 50",
+    "naver_map_url": "https://naver.me/xxxxx",
+    "tags": ["고기", "웨이팅", "데이트"],
+    "memo": "우대갈비로 유명. 웨이팅 고려.",
+    "visited": false,
+    "priority": 1
+  },
+  {
+    "id": 2,
+    "name": "을지다락",
+    "area": "을지로",
+    "category": "양식",
+    "address": "서울 중구 을지로",
+    "naver_map_url": "https://naver.me/yyyyy",
+    "tags": ["데이트", "분위기"],
+    "memo": "분위기 좋은 양식집.",
+    "visited": true,
+    "priority": 3
+  }
+]

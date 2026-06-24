@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "서울 맛집 리스트",
+    "slug": "seoul-restaurant-list",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "seoul-restaurant-list",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.seoulrestaurantlist"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FF6B6B"
+      },
+      "package": "com.example.seoulrestaurantlist"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

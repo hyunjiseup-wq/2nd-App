@@ -1,0 +1,59 @@
+export const AREAS = ['성수', '홍대', '합정', '연남', '을지로', '종로', '강남', '압구정', '이태원', '용산', '건대', '신촌', '강동'];
+
+export const CATEGORIES = ['음식점', '한식', '한식/고기', '일식', '중식', '양식', 'BAR', '카페', '분식', '디저트', '쇼핑', '생활/문화'];
+
+export const CATEGORY_COLORS: Record<string, string> = {
+  '음식점': '#E17055',
+  '한식': '#E17055',
+  '한식/고기': '#D63031',
+  '일식': '#0984E3',
+  '중식': '#F39C12',
+  '양식': '#6C5CE7',
+  'BAR': '#E84393',
+  '카페': '#00B894',
+  '분식': '#F39C12',
+  '디저트': '#A29BFE',
+  '쇼핑': '#74B9FF',
+  '생활/문화': '#55EFC4',
+  '마트/편의점': '#B2BEC3',
+};
+
+export const CATEGORY_BG: Record<string, string> = {
+  '음식점': '#FFF0ED',
+  '한식': '#FFF0ED',
+  '한식/고기': '#FFE8E8',
+  '일식': '#EBF5FF',
+  '중식': '#FFFBEF',
+  '양식': '#F0EEFF',
+  'BAR': '#FFF0FA',
+  '카페': '#E8FFF9',
+  '분식': '#FFF8E8',
+  '디저트': '#F5F0FF',
+  '쇼핑': '#EBF5FF',
+  '생활/문화': '#EFFFFC',
+  '마트/편의점': '#F5F5F5',
+};
+
+const DISTRICT_TO_AREA: Record<string, string> = {
+  '성동구': '성수',
+  '마포구': '홍대',
+  '서대문구': '신촌',
+  '용산구': '이태원',
+  '강남구': '강남',
+  '서초구': '강남',
+  '종로구': '종로',
+  '중구': '을지로',
+  '광진구': '건대',
+  '송파구': '강동',
+  '강동구': '강동',
+  '동작구': '강남',
+  '영등포구': '홍대',
+};
+
+export function inferAreaFromAddress(address?: string): string | undefined {
+  if (!address) return undefined;
+  for (const [district, area] of Object.entries(DISTRICT_TO_AREA)) {
+    if (address.includes(district)) return area;
+  }
+  return undefined;
+}
