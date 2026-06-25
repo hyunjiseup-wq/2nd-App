@@ -10,7 +10,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import EmptyState from '@/components/EmptyState';
 import FilterBar from '@/components/FilterBar';
 import RestaurantCard from '@/components/RestaurantCard';
 import SearchBar from '@/components/SearchBar';
@@ -19,6 +18,7 @@ import { useRestaurants } from '@/context/RestaurantContext';
 export default function HomeScreen() {
   const router = useRouter();
   const {
+    restaurants,
     filteredRestaurants,
     loading,
     searchQuery,
@@ -42,6 +42,8 @@ export default function HomeScreen() {
     );
   }
 
+  const isEmpty = restaurants.length === 0;
+
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <FlatList
@@ -50,6 +52,7 @@ export default function HomeScreen() {
         renderItem={({ item }) => (
           <RestaurantCard
             restaurant={item}
+            mode="own"
             onPress={() => router.push(`/detail/${item.id}`)}
             onToggleVisited={() => toggleVisited(item.id)}
             onToggleWishlist={() => toggleWishlist(item.id)}
@@ -57,27 +60,55 @@ export default function HomeScreen() {
         )}
         ListHeaderComponent={
           <>
-            <SearchBar value={searchQuery} onChangeText={setSearchQuery} />
-            <FilterBar
-              areaFilter={areaFilter}
-              categoryFilter={categoryFilter}
-              visitedFilter={visitedFilter}
-              onAreaChange={setAreaFilter}
-              onCategoryChange={setCategoryFilter}
-              onVisitedChange={setVisitedFilter}
-            />
-            <View style={styles.countRow}>
-              <Text style={styles.countText}>
-                총 {filteredRestaurants.length}개의 맛집
-              </Text>
-            </View>
+            {/* 둘러보기 배너 */}
+            <Pressable style={styles.exploreBanner} onPress={() => router.push('/explore' as any)}>
+              <View style={styles.exploreLeft}>
+                <Ionicons name="compass" size={22} color="#fff" />
+                <View>
+                  <Text style={styles.exploreTitle}>다른 사람 리스트 둘러보기</Text>
+                  <Text style={styles.exploreSub}>맘에 드는 맛집을 내 리스트로 담아보세요</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#fff" />
+            </Pressable>
+
+            {!isEmpty && (
+              <>
+                <SearchBar value={searchQuery} onChangeText={setSearchQuery} />
+                <FilterBar
+                  areaFilter={areaFilter}
+                  categoryFilter={categoryFilter}
+                  visitedFilter={visitedFilter}
+                  onAreaChange={setAreaFilter}
+                  onCategoryChange={setCategoryFilter}
+                  onVisitedChange={setVisitedFilter}
+                />
+                <View style={styles.countRow}>
+                  <Text style={styles.countText}>내 맛집 {filteredRestaurants.length}개</Text>
+                </View>
+              </>
+            )}
           </>
         }
         ListEmptyComponent={
-          <EmptyState
-            title={searchQuery ? '검색 결과가 없어요' : '맛집이 없어요'}
-            subtitle={searchQuery ? '다른 키워드로 검색해 보세요' : '아래 + 버튼으로 추가하세요'}
-          />
+          isEmpty ? (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyEmoji}>🍽️</Text>
+              <Text style={styles.emptyTitle}>아직 담은 맛집이 없어요</Text>
+              <Text style={styles.emptySub}>
+                위 "둘러보기"에서 다른 사람 리스트를 구경하거나{'\n'}아래 + 버튼으로 직접 추가해보세요
+              </Text>
+              <Pressable style={styles.emptyBtn} onPress={() => router.push('/explore' as any)}>
+                <Ionicons name="compass" size={18} color="#fff" />
+                <Text style={styles.emptyBtnText}>둘러보기</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyTitle}>검색 결과가 없어요</Text>
+              <Text style={styles.emptySub}>다른 키워드나 필터로 찾아보세요</Text>
+            </View>
+          )
         }
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
@@ -99,12 +130,37 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { fontSize: 14, color: '#aaa' },
   list: { paddingBottom: 100 },
-  countRow: {
-    paddingHorizontal: 16,
-    paddingBottom: 4,
-    paddingTop: 2,
+  exploreBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#6C5CE7',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    borderRadius: 14,
+    padding: 16,
   },
+  exploreLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  exploreTitle: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  exploreSub: { color: '#E0DBFF', fontSize: 12, marginTop: 2 },
+  countRow: { paddingHorizontal: 16, paddingBottom: 4, paddingTop: 2 },
   countText: { fontSize: 12, color: '#aaa' },
+  emptyBox: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32, gap: 8 },
+  emptyEmoji: { fontSize: 56 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#444' },
+  emptySub: { fontSize: 14, color: '#aaa', textAlign: 'center', lineHeight: 20 },
+  emptyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#6C5CE7',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  emptyBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   fab: {
     position: 'absolute',
     bottom: 28,

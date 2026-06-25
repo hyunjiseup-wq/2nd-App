@@ -7,8 +7,11 @@ import { Restaurant } from '@/types/restaurant';
 interface Props {
   restaurant: Restaurant;
   onPress: () => void;
-  onToggleVisited: () => void;
-  onToggleWishlist: () => void;
+  mode?: 'own' | 'browse';
+  onToggleVisited?: () => void;
+  onToggleWishlist?: () => void;
+  onCopy?: () => void;
+  copied?: boolean;
 }
 
 function Stars({ count }: { count: number }) {
@@ -26,7 +29,15 @@ function Stars({ count }: { count: number }) {
   );
 }
 
-export default function RestaurantCard({ restaurant, onPress, onToggleVisited, onToggleWishlist }: Props) {
+export default function RestaurantCard({
+  restaurant,
+  onPress,
+  mode = 'own',
+  onToggleVisited,
+  onToggleWishlist,
+  onCopy,
+  copied,
+}: Props) {
   const { name, area, category, memo, tags, priority, visited, wishlist, image_url } = restaurant;
   const catColor = category ? CATEGORY_COLORS[category] ?? '#888' : '#888';
   const catBg = category ? CATEGORY_BG[category] ?? '#f5f5f5' : '#f5f5f5';
@@ -39,7 +50,6 @@ export default function RestaurantCard({ restaurant, onPress, onToggleVisited, o
       <View style={styles.cardInner}>
         {/* 텍스트 영역 */}
         <View style={styles.textArea}>
-          {/* 상단: 카테고리 배지 + 지역 + 별점 */}
           <View style={styles.topRow}>
             <View style={styles.badges}>
               {category && (
@@ -56,19 +66,16 @@ export default function RestaurantCard({ restaurant, onPress, onToggleVisited, o
             <Stars count={priority} />
           </View>
 
-          {/* 식당 이름 */}
           <Text style={styles.name} numberOfLines={1}>
             {name}
           </Text>
 
-          {/* 메모 */}
           {memo ? (
             <Text style={styles.memo} numberOfLines={2}>
               {memo}
             </Text>
           ) : null}
 
-          {/* 태그 */}
           {tags && tags.length > 0 && (
             <View style={styles.tagRow}>
               {tags.slice(0, 3).map((tag, i) => (
@@ -81,52 +88,64 @@ export default function RestaurantCard({ restaurant, onPress, onToggleVisited, o
         </View>
 
         {/* 음식 사진 썸네일 */}
-        {image_url ? (
-          <Image source={{ uri: image_url }} style={styles.thumbnail} />
-        ) : null}
+        {image_url ? <Image source={{ uri: image_url }} style={styles.thumbnail} /> : null}
       </View>
 
-      {/* 하단: 가고싶음 + 방문함 + 화살표 */}
+      {/* 하단 액션 */}
       <View style={styles.bottomRow}>
-        <View style={styles.btnGroup}>
-          {/* 가고싶음 버튼 */}
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation();
-              onToggleWishlist();
-            }}
-            style={[styles.stateBtn, wishlist && styles.wishlistBtnActive]}
-            hitSlop={4}
-          >
-            <Ionicons
-              name={wishlist ? 'heart' : 'heart-outline'}
-              size={15}
-              color={wishlist ? '#fff' : '#aaa'}
-            />
-            <Text style={[styles.stateBtnText, wishlist && styles.wishlistTextActive]}>
-              가고싶음
-            </Text>
-          </Pressable>
+        {mode === 'own' ? (
+          <View style={styles.btnGroup}>
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                onToggleWishlist?.();
+              }}
+              style={[styles.stateBtn, wishlist && styles.wishlistBtnActive]}
+              hitSlop={4}
+            >
+              <Ionicons
+                name={wishlist ? 'heart' : 'heart-outline'}
+                size={15}
+                color={wishlist ? '#fff' : '#aaa'}
+              />
+              <Text style={[styles.stateBtnText, wishlist && styles.activeText]}>가고싶음</Text>
+            </Pressable>
 
-          {/* 방문함 버튼 */}
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                onToggleVisited?.();
+              }}
+              style={[styles.stateBtn, visited && styles.visitedBtnActive]}
+              hitSlop={4}
+            >
+              <Ionicons
+                name={visited ? 'checkmark-circle' : 'ellipse-outline'}
+                size={15}
+                color={visited ? '#fff' : '#aaa'}
+              />
+              <Text style={[styles.stateBtnText, visited && styles.activeText]}>방문함</Text>
+            </Pressable>
+          </View>
+        ) : (
           <Pressable
             onPress={(e) => {
               e.stopPropagation();
-              onToggleVisited();
+              if (!copied) onCopy?.();
             }}
-            style={[styles.stateBtn, visited && styles.visitedBtnActive]}
+            style={[styles.copyBtn, copied && styles.copyBtnDone]}
             hitSlop={4}
           >
             <Ionicons
-              name={visited ? 'checkmark-circle' : 'ellipse-outline'}
+              name={copied ? 'checkmark' : 'download-outline'}
               size={15}
-              color={visited ? '#fff' : '#aaa'}
+              color={copied ? '#00B894' : '#fff'}
             />
-            <Text style={[styles.stateBtnText, visited && styles.visitedTextActive]}>
-              방문함
+            <Text style={[styles.copyBtnText, copied && styles.copyBtnTextDone]}>
+              {copied ? '담음' : '내 리스트에 담기'}
             </Text>
           </Pressable>
-        </View>
+        )}
         <Ionicons name="chevron-forward" size={18} color="#ccc" />
       </View>
     </Pressable>
@@ -162,18 +181,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   badges: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', flex: 1 },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   badgeText: { fontSize: 12, fontWeight: '600' },
-  areaBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    backgroundColor: '#f0f0f0',
-  },
+  areaBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: '#f0f0f0' },
   areaBadgeText: { fontSize: 12, color: '#666' },
   name: { fontSize: 17, fontWeight: '700', color: '#1a1a1a', marginBottom: 4 },
   memo: { fontSize: 13, color: '#666', lineHeight: 18, marginBottom: 6 },
@@ -201,6 +211,17 @@ const styles = StyleSheet.create({
   wishlistBtnActive: { backgroundColor: '#FF6B6B' },
   visitedBtnActive: { backgroundColor: '#00B894' },
   stateBtnText: { fontSize: 12, color: '#888', fontWeight: '500' },
-  wishlistTextActive: { color: '#fff' },
-  visitedTextActive: { color: '#fff' },
+  activeText: { color: '#fff' },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#FF6B6B',
+  },
+  copyBtnDone: { backgroundColor: '#E8FFF9' },
+  copyBtnText: { fontSize: 12, color: '#fff', fontWeight: '600' },
+  copyBtnTextDone: { color: '#00B894' },
 });

@@ -8,14 +8,18 @@ import React, {
   useState,
 } from 'react';
 import { inferAreaFromAddress } from '@/constants/filters';
+import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Restaurant, Review, VisitedFilter } from '@/types/restaurant';
+import { Feedback, Profile, Restaurant, Review, VisitedFilter } from '@/types/restaurant';
 import rawSeedData from '@/seoul_restaurant_app_starter/restaurants_from_json.json';
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 
+type NewRestaurant = Omit<Restaurant, 'id' | 'owner_id' | 'created_at' | 'updated_at'>;
+type EditRestaurant = Partial<Omit<Restaurant, 'id' | 'owner_id' | 'created_at'>>;
+
 interface RestaurantContextType {
-  restaurants: Restaurant[];
+  restaurants: Restaurant[];          // 내 리스트
   filteredRestaurants: Restaurant[];
   loading: boolean;
   error: string | null;
@@ -28,20 +32,33 @@ interface RestaurantContextType {
   setCategoryFilter: (c: string | null) => void;
   setVisitedFilter: (v: VisitedFilter) => void;
   getRestaurant: (id: string) => Restaurant | undefined;
-  addRestaurant: (data: Omit<Restaurant, 'id' | 'created_at' | 'updated_at'>) => Promise<string>;
-  updateRestaurant: (id: string, data: Partial<Omit<Restaurant, 'id' | 'created_at'>>) => Promise<void>;
+  fetchRestaurantById: (id: string) => Promise<Restaurant | null>;
+  addRestaurant: (data: NewRestaurant) => Promise<string>;
+  updateRestaurant: (id: string, data: EditRestaurant) => Promise<void>;
   deleteRestaurant: (id: string) => Promise<void>;
   toggleVisited: (id: string) => Promise<void>;
   toggleWishlist: (id: string) => Promise<void>;
+  copyRestaurant: (src: Restaurant) => Promise<string>;
+  // 둘러보기
+  getUsers: () => Promise<Profile[]>;
+  getUserRestaurants: (userId: string) => Promise<Restaurant[]>;
+  // 리뷰
   getReviews: (restaurantId: string) => Promise<Review[]>;
   saveReview: (restaurantId: string, rating: number, content: string) => Promise<void>;
+  deleteReview: (reviewId: string) => Promise<void>;       // 관리자 전용
+  // 피드백
   submitFeedback: (type: string, content: string) => Promise<void>;
+  getAllFeedback: () => Promise<Feedback[]>;               // 관리자 전용
 }
 
-// ── Supabase 행 타입 ─────────────────────────────────────────────────────────
+// ── Supabase 행 변환 ─────────────────────────────────────────────────────────
+
+const RESTAURANT_COLUMNS =
+  'id, owner_id, name, area, category, address, naver_map_url, image_url, tags, memo, visited, wishlist, priority, created_at, updated_at';
 
 type SupabaseRow = {
   id: string;
+  owner_id: string | null;
   name: string;
   area: string | null;
   category: string | null;
@@ -50,16 +67,17 @@ type SupabaseRow = {
   image_url: string | null;
   tags: string[] | null;
   memo: string | null;
+  visited: boolean | null;
+  wishlist: boolean | null;
   priority: number;
   created_at: string;
   updated_at: string;
 };
 
-type UserState = { visited: boolean; wishlist: boolean };
-
-function fromRow(row: SupabaseRow, state?: UserState): Restaurant {
+function fromRow(row: SupabaseRow): Restaurant {
   return {
     id: row.id,
+    owner_id: row.owner_id ?? '',
     name: row.name,
     area: row.area ?? undefined,
     category: row.category ?? undefined,
@@ -68,15 +86,15 @@ function fromRow(row: SupabaseRow, state?: UserState): Restaurant {
     image_url: row.image_url ?? undefined,
     tags: row.tags ?? undefined,
     memo: row.memo ?? undefined,
-    visited: state?.visited ?? false,
-    wishlist: state?.wishlist ?? false,
+    visited: row.visited ?? false,
+    wishlist: row.wishlist ?? false,
     priority: row.priority,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
 }
 
-// ── 초기 시드 ─────────────────────────────────────────────────────────────────
+// ── 초기 시드 (관리자 전용) ───────────────────────────────────────────────────
 
 const SEEDED_KEY = '@supabase_seeded';
 
@@ -103,7 +121,8 @@ function makeUUID(): string {
   });
 }
 
-async function seedIfEmpty() {
+// 테이블이 비어 있으면 관리자 소유로 311개 시드
+async function seedIfEmpty(ownerId: string) {
   const already = await AsyncStorage.getItem(SEEDED_KEY);
   if (already) return;
 
@@ -130,6 +149,7 @@ async function seedIfEmpty() {
     const area = r.area || inferAreaFromAddress(r.address) || null;
     return {
       id: makeUUID(),
+      owner_id: ownerId,
       name: r.name,
       area,
       category: r.category || null,
@@ -139,6 +159,7 @@ async function seedIfEmpty() {
       tags: tags && tags.length > 0 ? tags : null,
       memo: r.memo || null,
       visited: false,
+      wishlist: false,
       priority: r.priority ?? 3,
     };
   });
@@ -153,9 +174,16 @@ async function seedIfEmpty() {
     }
   }
 
-  if (allOk) {
-    await AsyncStorage.setItem(SEEDED_KEY, 'true');
-  }
+  if (allOk) await AsyncStorage.setItem(SEEDED_KEY, 'true');
+}
+
+// 주인 없는(예전에 시드된) 맛집을 관리자 소유로 귀속
+async function claimUnowned(ownerId: string) {
+  const { error } = await supabase
+    .from('seoul_restaurants')
+    .update({ owner_id: ownerId })
+    .is('owner_id', null);
+  if (error) console.warn('[Claim] error:', error.message);
 }
 
 // ── Context ───────────────────────────────────────────────────────────────────
@@ -163,9 +191,10 @@ async function seedIfEmpty() {
 const RestaurantContext = createContext<RestaurantContextType | null>(null);
 
 export function RestaurantProvider({ children }: { children: React.ReactNode }) {
-  const [rawRestaurants, setRawRestaurants] = useState<SupabaseRow[]>([]);
-  const [userStates, setUserStates] = useState<Map<string, UserState>>(new Map());
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user, isAdmin } = useAuth();
+  const userId = user?.id ?? null;
+
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -173,69 +202,42 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [visitedFilter, setVisitedFilter] = useState<VisitedFilter>('all');
 
-  // auth 상태 구독
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setUserId(data.session?.user?.id ?? null);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserId(session?.user?.id ?? null);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const fetchUserStates = useCallback(async (uid: string) => {
-    const { data, error: err } = await supabase
-      .from('user_restaurant_states')
-      .select('restaurant_id, visited, wishlist')
-      .eq('user_id', uid);
-
-    if (err) {
-      console.warn('[UserStates] fetch error:', err.message);
-      return;
-    }
-
-    const map = new Map<string, UserState>();
-    for (const row of data ?? []) {
-      map.set(row.restaurant_id, { visited: row.visited, wishlist: row.wishlist });
-    }
-    setUserStates(map);
-  }, []);
-
-  const fetchAll = useCallback(async () => {
+  const fetchMine = useCallback(async (uid: string) => {
     const { data, error: err } = await supabase
       .from('seoul_restaurants')
-      .select('id, name, area, category, address, naver_map_url, image_url, tags, memo, priority, created_at, updated_at')
+      .select(RESTAURANT_COLUMNS)
+      .eq('owner_id', uid)
       .order('priority', { ascending: false })
       .order('name', { ascending: true });
 
     if (err) {
       setError(err.message);
     } else {
-      setRawRestaurants((data ?? []) as SupabaseRow[]);
+      setRestaurants((data as SupabaseRow[]).map(fromRow));
       setError(null);
     }
   }, []);
 
   useEffect(() => {
+    if (!userId) {
+      setRestaurants([]);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
     (async () => {
       setLoading(true);
-      await seedIfEmpty();
-      await fetchAll();
-      setLoading(false);
+      if (isAdmin) {
+        await seedIfEmpty(userId);
+        await claimUnowned(userId);
+      }
+      if (!cancelled) await fetchMine(userId);
+      if (!cancelled) setLoading(false);
     })();
-  }, [fetchAll]);
-
-  useEffect(() => {
-    if (userId) fetchUserStates(userId);
-    else setUserStates(new Map());
-  }, [userId, fetchUserStates]);
-
-  // raw + userStates 병합
-  const restaurants = useMemo<Restaurant[]>(
-    () => rawRestaurants.map((r) => fromRow(r, userStates.get(r.id))),
-    [rawRestaurants, userStates],
-  );
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, isAdmin, fetchMine]);
 
   // ── 필터링 (인메모리) ─────────────────────────────────────────────────────
 
@@ -259,58 +261,27 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
     [restaurants],
   );
 
-  // ── 유저 상태 업서트 ──────────────────────────────────────────────────────
+  const fetchRestaurantById = useCallback(async (id: string): Promise<Restaurant | null> => {
+    const { data, error: err } = await supabase
+      .from('seoul_restaurants')
+      .select(RESTAURANT_COLUMNS)
+      .eq('id', id)
+      .single();
+    if (err || !data) return null;
+    return fromRow(data as SupabaseRow);
+  }, []);
 
-  const upsertUserState = useCallback(
-    async (restaurantId: string, patch: Partial<UserState>) => {
-      if (!userId) return;
-      const current = userStates.get(restaurantId) ?? { visited: false, wishlist: false };
-      const next = { ...current, ...patch };
-
-      const { error: err } = await supabase.from('user_restaurant_states').upsert({
-        user_id: userId,
-        restaurant_id: restaurantId,
-        visited: next.visited,
-        wishlist: next.wishlist,
-        updated_at: new Date().toISOString(),
-      });
-
-      if (err) throw new Error(err.message);
-
-      setUserStates((prev) => {
-        const copy = new Map(prev);
-        copy.set(restaurantId, next);
-        return copy;
-      });
-    },
-    [userId, userStates],
-  );
-
-  const toggleVisited = useCallback(
-    async (id: string) => {
-      const current = userStates.get(id) ?? { visited: false, wishlist: false };
-      await upsertUserState(id, { visited: !current.visited });
-    },
-    [userStates, upsertUserState],
-  );
-
-  const toggleWishlist = useCallback(
-    async (id: string) => {
-      const current = userStates.get(id) ?? { visited: false, wishlist: false };
-      await upsertUserState(id, { wishlist: !current.wishlist });
-    },
-    [userStates, upsertUserState],
-  );
-
-  // ── CRUD ─────────────────────────────────────────────────────────────────
+  // ── 내 리스트 CRUD ─────────────────────────────────────────────────────────
 
   const addRestaurant = useCallback(
-    async (data: Omit<Restaurant, 'id' | 'created_at' | 'updated_at'>) => {
+    async (data: NewRestaurant) => {
+      if (!userId) throw new Error('로그인이 필요합니다');
       const newId = makeUUID();
       const { data: row, error: err } = await supabase
         .from('seoul_restaurants')
         .insert({
           id: newId,
+          owner_id: userId,
           name: data.name,
           area: data.area ?? null,
           category: data.category ?? null,
@@ -319,28 +290,23 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
           image_url: data.image_url ?? null,
           tags: data.tags ?? null,
           memo: data.memo ?? null,
-          visited: false,
+          visited: data.visited ?? false,
+          wishlist: data.wishlist ?? false,
           priority: data.priority,
         })
-        .select('id, name, area, category, address, naver_map_url, image_url, tags, memo, priority, created_at, updated_at')
+        .select(RESTAURANT_COLUMNS)
         .single();
 
       if (err) throw new Error(err.message);
-
-      const newRow = row as SupabaseRow;
-      setRawRestaurants((prev) => [newRow, ...prev]);
-
-      if (data.visited || data.wishlist) {
-        await upsertUserState(newId, { visited: data.visited, wishlist: data.wishlist });
-      }
-
+      setRestaurants((prev) => [fromRow(row as SupabaseRow), ...prev]);
       return newId;
     },
-    [upsertUserState],
+    [userId],
   );
 
   const updateRestaurant = useCallback(
-    async (id: string, data: Partial<Omit<Restaurant, 'id' | 'created_at'>>) => {
+    async (id: string, data: EditRestaurant) => {
+      if (!userId) throw new Error('로그인이 필요합니다');
       const { error: err } = await supabase
         .from('seoul_restaurants')
         .update({
@@ -352,51 +318,113 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
           ...(data.image_url !== undefined && { image_url: data.image_url ?? null }),
           ...(data.tags !== undefined && { tags: data.tags ?? null }),
           ...(data.memo !== undefined && { memo: data.memo ?? null }),
-          ...(data.priority !== undefined && { priority: data.priority }),
-        })
-        .eq('id', id);
-
-      if (err) throw new Error(err.message);
-
-      setRawRestaurants((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? {
-                ...r,
-                ...(data.name !== undefined && { name: data.name! }),
-                ...(data.area !== undefined && { area: data.area ?? null }),
-                ...(data.category !== undefined && { category: data.category ?? null }),
-                ...(data.address !== undefined && { address: data.address ?? null }),
-                ...(data.naver_map_url !== undefined && { naver_map_url: data.naver_map_url ?? null }),
-                ...(data.image_url !== undefined && { image_url: data.image_url ?? null }),
-                ...(data.tags !== undefined && { tags: data.tags ?? null }),
-                ...(data.memo !== undefined && { memo: data.memo ?? null }),
-                ...(data.priority !== undefined && { priority: data.priority! }),
-                updated_at: new Date().toISOString(),
-              }
-            : r,
-        ),
-      );
-
-      if (data.visited !== undefined || data.wishlist !== undefined) {
-        await upsertUserState(id, {
           ...(data.visited !== undefined && { visited: data.visited }),
           ...(data.wishlist !== undefined && { wishlist: data.wishlist }),
-        });
-      }
+          ...(data.priority !== undefined && { priority: data.priority }),
+        })
+        .eq('id', id)
+        .eq('owner_id', userId);
+
+      if (err) throw new Error(err.message);
+      setRestaurants((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, ...data, updated_at: new Date().toISOString() } : r)),
+      );
     },
-    [upsertUserState],
+    [userId],
   );
 
-  const deleteRestaurant = useCallback(async (id: string) => {
-    const { error: err } = await supabase.from('seoul_restaurants').delete().eq('id', id);
+  const deleteRestaurant = useCallback(
+    async (id: string) => {
+      if (!userId) throw new Error('로그인이 필요합니다');
+      const { error: err } = await supabase
+        .from('seoul_restaurants')
+        .delete()
+        .eq('id', id)
+        .eq('owner_id', userId);
+      if (err) throw new Error(err.message);
+      setRestaurants((prev) => prev.filter((r) => r.id !== id));
+    },
+    [userId],
+  );
+
+  const toggleVisited = useCallback(
+    async (id: string) => {
+      const target = restaurants.find((r) => r.id === id);
+      if (!target) return;
+      await updateRestaurant(id, { visited: !target.visited });
+    },
+    [restaurants, updateRestaurant],
+  );
+
+  const toggleWishlist = useCallback(
+    async (id: string) => {
+      const target = restaurants.find((r) => r.id === id);
+      if (!target) return;
+      await updateRestaurant(id, { wishlist: !target.wishlist });
+    },
+    [restaurants, updateRestaurant],
+  );
+
+  // 남의 맛집을 내 리스트로 담기
+  const copyRestaurant = useCallback(
+    async (src: Restaurant) => {
+      if (!userId) throw new Error('로그인이 필요합니다');
+      const newId = makeUUID();
+      const { data: row, error: err } = await supabase
+        .from('seoul_restaurants')
+        .insert({
+          id: newId,
+          owner_id: userId,
+          name: src.name,
+          area: src.area ?? null,
+          category: src.category ?? null,
+          address: src.address ?? null,
+          naver_map_url: src.naver_map_url ?? null,
+          image_url: src.image_url ?? null,
+          tags: src.tags ?? null,
+          memo: src.memo ?? null,
+          visited: false,
+          wishlist: true, // 담은 건 기본적으로 '가고싶음'
+          priority: src.priority,
+        })
+        .select(RESTAURANT_COLUMNS)
+        .single();
+
+      if (err) throw new Error(err.message);
+      setRestaurants((prev) => [fromRow(row as SupabaseRow), ...prev]);
+      return newId;
+    },
+    [userId],
+  );
+
+  // ── 둘러보기 ──────────────────────────────────────────────────────────────
+
+  const getUsers = useCallback(async (): Promise<Profile[]> => {
+    const { data: profs, error: pErr } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('is_admin', { ascending: false })
+      .order('created_at', { ascending: true });
+    if (pErr) throw new Error(pErr.message);
+
+    const { data: owners } = await supabase.from('seoul_restaurants').select('owner_id');
+    const counts = new Map<string, number>();
+    for (const r of (owners ?? []) as { owner_id: string | null }[]) {
+      if (r.owner_id) counts.set(r.owner_id, (counts.get(r.owner_id) ?? 0) + 1);
+    }
+
+    return (profs as Profile[]).map((p) => ({ ...p, count: counts.get(p.id) ?? 0 }));
+  }, []);
+
+  const getUserRestaurants = useCallback(async (uid: string): Promise<Restaurant[]> => {
+    const { data, error: err } = await supabase
+      .from('seoul_restaurants')
+      .select(RESTAURANT_COLUMNS)
+      .eq('owner_id', uid)
+      .order('priority', { ascending: false })
+      .order('name', { ascending: true });
     if (err) throw new Error(err.message);
-    setRawRestaurants((prev) => prev.filter((r) => r.id !== id));
-    setUserStates((prev) => {
-      const copy = new Map(prev);
-      copy.delete(id);
-      return copy;
-    });
+    return (data as SupabaseRow[]).map(fromRow);
   }, []);
 
   // ── 리뷰 ─────────────────────────────────────────────────────────────────
@@ -407,7 +435,6 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
       .select('*')
       .eq('restaurant_id', restaurantId)
       .order('created_at', { ascending: false });
-
     if (err) throw new Error(err.message);
     return (data ?? []) as Review[];
   }, []);
@@ -415,37 +442,41 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   const saveReview = useCallback(
     async (restaurantId: string, rating: number, content: string) => {
       if (!userId) throw new Error('로그인이 필요합니다');
-      const { data: userData } = await supabase.auth.getUser();
       const displayName =
-        userData?.user?.user_metadata?.display_name ??
-        userData?.user?.email?.split('@')[0] ??
-        '익명';
+        user?.user_metadata?.display_name ?? user?.email?.split('@')[0] ?? '익명';
 
-      const { error: err } = await supabase.from('restaurant_reviews').upsert({
-        id: makeUUID(),
-        restaurant_id: restaurantId,
-        user_id: userId,
-        display_name: displayName,
-        rating,
-        content: content.trim() || null,
-        created_at: new Date().toISOString(),
-      }, { onConflict: 'user_id,restaurant_id' });
-
+      const { error: err } = await supabase.from('restaurant_reviews').upsert(
+        {
+          id: makeUUID(),
+          restaurant_id: restaurantId,
+          user_id: userId,
+          display_name: displayName,
+          rating,
+          content: content.trim() || null,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,restaurant_id' },
+      );
       if (err) throw new Error(err.message);
     },
-    [userId],
+    [userId, user],
+  );
+
+  const deleteReview = useCallback(
+    async (reviewId: string) => {
+      if (!isAdmin) throw new Error('관리자만 삭제할 수 있어요');
+      const { error: err } = await supabase.from('restaurant_reviews').delete().eq('id', reviewId);
+      if (err) throw new Error(err.message);
+    },
+    [isAdmin],
   );
 
   // ── 피드백 ────────────────────────────────────────────────────────────────
 
   const submitFeedback = useCallback(
     async (type: string, content: string) => {
-      const { data: userData } = await supabase.auth.getUser();
       const displayName =
-        userData?.user?.user_metadata?.display_name ??
-        userData?.user?.email?.split('@')[0] ??
-        '익명';
-
+        user?.user_metadata?.display_name ?? user?.email?.split('@')[0] ?? '익명';
       const { error: err } = await supabase.from('app_feedback').insert({
         id: makeUUID(),
         user_id: userId ?? null,
@@ -453,11 +484,20 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
         type,
         content,
       });
-
       if (err) throw new Error(err.message);
     },
-    [userId],
+    [userId, user],
   );
+
+  const getAllFeedback = useCallback(async (): Promise<Feedback[]> => {
+    if (!isAdmin) throw new Error('관리자만 볼 수 있어요');
+    const { data, error: err } = await supabase
+      .from('app_feedback')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (err) throw new Error(err.message);
+    return (data ?? []) as Feedback[];
+  }, [isAdmin]);
 
   // ── Value ─────────────────────────────────────────────────────────────────
 
@@ -476,14 +516,20 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
       setCategoryFilter,
       setVisitedFilter,
       getRestaurant,
+      fetchRestaurantById,
       addRestaurant,
       updateRestaurant,
       deleteRestaurant,
       toggleVisited,
       toggleWishlist,
+      copyRestaurant,
+      getUsers,
+      getUserRestaurants,
       getReviews,
       saveReview,
+      deleteReview,
       submitFeedback,
+      getAllFeedback,
     }),
     [
       restaurants,
@@ -495,14 +541,20 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
       categoryFilter,
       visitedFilter,
       getRestaurant,
+      fetchRestaurantById,
       addRestaurant,
       updateRestaurant,
       deleteRestaurant,
       toggleVisited,
       toggleWishlist,
+      copyRestaurant,
+      getUsers,
+      getUserRestaurants,
       getReviews,
       saveReview,
+      deleteReview,
       submitFeedback,
+      getAllFeedback,
     ],
   );
 

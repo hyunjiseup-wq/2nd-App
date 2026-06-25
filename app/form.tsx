@@ -162,7 +162,7 @@ export default function FormScreen() {
       .map((t) => t.trim())
       .filter(Boolean);
 
-    const payload: Omit<Restaurant, 'id' | 'created_at' | 'updated_at'> = {
+    const payload: Omit<Restaurant, 'id' | 'owner_id' | 'created_at' | 'updated_at'> = {
       name: form.name.trim(),
       area: form.area || undefined,
       category: form.category || undefined,

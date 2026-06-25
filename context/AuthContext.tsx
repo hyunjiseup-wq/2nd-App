@@ -1,5 +1,6 @@
 import { Session, User } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { isAdminEmail } from '@/lib/admin';
 import { supabase } from '@/lib/supabase';
 
 interface AuthContextType {
@@ -7,6 +8,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   displayName: string;
+  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -29,10 +31,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  const user = session?.user ?? null;
+
   const displayName =
-    session?.user?.user_metadata?.display_name ??
-    session?.user?.email?.split('@')[0] ??
+    user?.user_metadata?.display_name ??
+    user?.email?.split('@')[0] ??
     '사용자';
+
+  const isAdmin = isAdminEmail(user?.email);
+
+  // 로그인 시 profiles 테이블에 내 정보 등록 (다른 사람이 내 리스트를 찾을 수 있도록)
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        display_name: displayName,
+        is_admin: isAdmin,
+      })
+      .then(({ error }) => {
+        if (error) console.warn('[Profile] upsert error:', error.message);
+      });
+  }, [user?.id, displayName, isAdmin]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -53,7 +74,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user: session?.user ?? null, session, loading, displayName, signIn, signUp, signOut }}>
+    <AuthContext.Provider
+      value={{ user, session, loading, displayName, isAdmin, signIn, signUp, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );

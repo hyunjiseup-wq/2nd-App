@@ -33,6 +33,7 @@ function transformRaw(raw: RawRestaurant): Restaurant {
 
   return {
     id: String(raw.id),
+    owner_id: '',
     name: raw.name,
     area: area || undefined,
     category: raw.category || undefined,

@@ -1,5 +1,6 @@
 export interface Restaurant {
   id: string;
+  owner_id: string;
   name: string;
   area?: string;
   category?: string;
@@ -24,6 +25,23 @@ export interface Review {
   display_name: string;
   rating: number;
   content?: string;
+  created_at: string;
+}
+
+export interface Profile {
+  id: string;
+  display_name: string;
+  is_admin: boolean;
+  created_at: string;
+  count?: number; // 보유 맛집 수 (클라이언트에서 계산)
+}
+
+export interface Feedback {
+  id: string;
+  user_id?: string;
+  display_name?: string;
+  type: string;
+  content: string;
   created_at: string;
 }
 
