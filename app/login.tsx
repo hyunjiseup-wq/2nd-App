@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -16,19 +15,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
 
 export default function LoginScreen() {
-  const { user, signIn, signUp } = useAuth();
-  const router = useRouter();
+  const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // 이미 로그인돼 있으면 홈으로
-  if (user) {
-    router.replace('/');
-    return null;
-  }
 
   async function handleSubmit() {
     if (!email.trim() || !password.trim()) {
