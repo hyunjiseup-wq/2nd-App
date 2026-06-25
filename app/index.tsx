@@ -30,12 +30,14 @@ export default function HomeScreen() {
     setCategoryFilter,
     setVisitedFilter,
     toggleVisited,
+    toggleWishlist,
   } = useRestaurants();
 
   if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#FF6B6B" />
+        <Text style={styles.loadingText}>맛집 불러오는 중...</Text>
       </View>
     );
   }
@@ -50,6 +52,7 @@ export default function HomeScreen() {
             restaurant={item}
             onPress={() => router.push(`/detail/${item.id}`)}
             onToggleVisited={() => toggleVisited(item.id)}
+            onToggleWishlist={() => toggleWishlist(item.id)}
           />
         )}
         ListHeaderComponent={
@@ -93,7 +96,8 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F5F5F5' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontSize: 14, color: '#aaa' },
   list: { paddingBottom: 100 },
   countRow: {
     paddingHorizontal: 16,

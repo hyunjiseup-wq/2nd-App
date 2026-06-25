@@ -41,6 +41,7 @@ function transformRaw(raw: RawRestaurant): Restaurant {
     tags: tags.length > 0 ? tags : undefined,
     memo: raw.memo || undefined,
     visited: raw.visited ?? false,
+    wishlist: false,
     priority: raw.priority ?? 3,
     created_at: now,
     updated_at: now,

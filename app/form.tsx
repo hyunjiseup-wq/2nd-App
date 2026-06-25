@@ -98,9 +98,11 @@ type FormData = {
   category: string;
   address: string;
   naver_map_url: string;
+  image_url: string;
   tagsInput: string;
   memo: string;
   visited: boolean;
+  wishlist: boolean;
   priority: number;
 };
 
@@ -118,9 +120,11 @@ export default function FormScreen() {
     category: '',
     address: '',
     naver_map_url: '',
+    image_url: '',
     tagsInput: '',
     memo: '',
     visited: false,
+    wishlist: false,
     priority: 3,
   });
   const [saving, setSaving] = useState(false);
@@ -133,9 +137,11 @@ export default function FormScreen() {
         category: existing.category ?? '',
         address: existing.address ?? '',
         naver_map_url: existing.naver_map_url ?? '',
+        image_url: existing.image_url ?? '',
         tagsInput: (existing.tags ?? []).join(', '),
         memo: existing.memo ?? '',
         visited: existing.visited,
+        wishlist: existing.wishlist,
         priority: existing.priority,
       });
     }
@@ -162,19 +168,26 @@ export default function FormScreen() {
       category: form.category || undefined,
       address: form.address.trim() || undefined,
       naver_map_url: form.naver_map_url.trim() || undefined,
+      image_url: form.image_url.trim() || undefined,
       tags: tags.length > 0 ? tags : undefined,
       memo: form.memo.trim() || undefined,
       visited: form.visited,
+      wishlist: form.wishlist,
       priority: form.priority,
     };
 
-    if (isEdit && id) {
-      await updateRestaurant(id, payload);
-    } else {
-      await addRestaurant(payload);
+    try {
+      if (isEdit && id) {
+        await updateRestaurant(id, payload);
+      } else {
+        await addRestaurant(payload);
+      }
+      router.back();
+    } catch (e: any) {
+      Alert.alert('오류', e.message ?? '저장에 실패했어요.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    router.back();
   }
 
   return (
@@ -253,6 +266,19 @@ export default function FormScreen() {
             />
           </Field>
 
+          {/* 음식 사진 URL */}
+          <Field label="음식 사진 URL">
+            <TextInput
+              style={styles.input}
+              value={form.image_url}
+              onChangeText={(v) => set('image_url', v)}
+              placeholder="https://... (이미지 URL 붙여넣기)"
+              placeholderTextColor="#ccc"
+              autoCapitalize="none"
+              keyboardType="url"
+            />
+          </Field>
+
           {/* 태그 */}
           <Field label="태그 (쉼표로 구분)">
             <TextInput
@@ -283,9 +309,26 @@ export default function FormScreen() {
             <StarPicker value={form.priority} onChange={(v) => set('priority', v)} />
           </Field>
 
+          {/* 가고싶음 */}
+          <View style={styles.switchRow}>
+            <View>
+              <Text style={styles.switchLabel}>❤️ 가고싶음</Text>
+              <Text style={styles.switchSub}>내 위시리스트에 추가</Text>
+            </View>
+            <Switch
+              value={form.wishlist}
+              onValueChange={(v) => set('wishlist', v)}
+              trackColor={{ false: '#ddd', true: '#FF6B6B' }}
+              thumbColor="#fff"
+            />
+          </View>
+
           {/* 방문 여부 */}
           <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>방문 완료</Text>
+            <View>
+              <Text style={styles.switchLabel}>✓ 방문 완료</Text>
+              <Text style={styles.switchSub}>이미 다녀온 곳</Text>
+            </View>
             <Switch
               value={form.visited}
               onValueChange={(v) => set('visited', v)}
@@ -345,9 +388,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    marginBottom: 16,
+    marginBottom: 10,
   },
-  switchLabel: { fontSize: 15, color: '#333', fontWeight: '500' },
+  switchLabel: { fontSize: 15, color: '#333', fontWeight: '600' },
+  switchSub: { fontSize: 12, color: '#aaa', marginTop: 2 },
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',

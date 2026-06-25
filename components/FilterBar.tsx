@@ -30,10 +30,10 @@ function Chip({ label, active, onPress, activeColor = '#FF6B6B' }: ChipProps) {
   );
 }
 
-const VISITED_OPTIONS: { label: string; value: VisitedFilter }[] = [
-  { label: '전체', value: 'all' },
-  { label: '✓ 방문함', value: 'visited' },
-  { label: '♡ 가고싶음', value: 'unvisited' },
+const STATUS_OPTIONS: { label: string; value: VisitedFilter; color: string }[] = [
+  { label: '전체', value: 'all', color: '#888' },
+  { label: '❤️ 가고싶음', value: 'wishlist', color: '#FF6B6B' },
+  { label: '✓ 방문함', value: 'visited', color: '#00B894' },
 ];
 
 export default function FilterBar({
@@ -90,15 +90,15 @@ export default function FilterBar({
         ))}
       </ScrollView>
 
-      {/* 방문 필터 */}
+      {/* 상태 필터 */}
       <View style={styles.visitedRow}>
-        {VISITED_OPTIONS.map((opt) => (
+        {STATUS_OPTIONS.map((opt) => (
           <Pressable
             key={opt.value}
             onPress={() => onVisitedChange(opt.value)}
             style={[
               styles.visitedChip,
-              visitedFilter === opt.value && styles.visitedChipActive,
+              visitedFilter === opt.value && { backgroundColor: opt.color, borderColor: opt.color },
             ]}
           >
             <Text
@@ -148,10 +148,6 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     backgroundColor: '#fff',
     alignItems: 'center',
-  },
-  visitedChipActive: {
-    backgroundColor: '#00B894',
-    borderColor: '#00B894',
   },
   visitedText: { fontSize: 13, color: '#555' },
   visitedTextActive: { color: '#fff', fontWeight: '600' },
