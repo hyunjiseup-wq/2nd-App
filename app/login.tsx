@@ -17,14 +17,14 @@ import { useAuth } from '@/context/AuthContext';
 export default function LoginScreen() {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('');
+  const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit() {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('입력 오류', '이메일과 비밀번호를 입력해주세요.');
+    if (!loginId.trim() || !password.trim()) {
+      Alert.alert('입력 오류', '아이디와 비밀번호를 입력해주세요.');
       return;
     }
     if (mode === 'signup' && !displayName.trim()) {
@@ -34,22 +34,24 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       if (mode === 'login') {
-        await signIn(email.trim(), password);
+        await signIn(loginId.trim(), password);
       } else {
-        await signUp(email.trim(), password, displayName.trim());
+        await signUp(loginId.trim(), password, displayName.trim());
         Alert.alert(
           '가입 완료',
-          '회원가입이 완료됐어요! 이메일 인증 없이 바로 로그인할 수 있어요.',
+          '회원가입이 완료됐어요! 바로 로그인할 수 있어요.',
           [{ text: '로그인하기', onPress: () => setMode('login') }],
         );
       }
     } catch (e: any) {
       const msg = e.message ?? '오류가 발생했어요.';
       if (msg.includes('Invalid login credentials')) {
-        Alert.alert('로그인 실패', '이메일 또는 비밀번호가 틀렸어요.');
+        Alert.alert('로그인 실패', '아이디 또는 비밀번호가 틀렸어요.');
       } else if (msg.includes('User already registered')) {
-        Alert.alert('이미 가입된 계정', '해당 이메일로 이미 가입돼 있어요. 로그인해주세요.');
+        Alert.alert('이미 있는 아이디', '이미 사용 중인 아이디예요. 로그인하거나 다른 아이디를 써주세요.');
         setMode('login');
+      } else if (msg.includes('Password should be')) {
+        Alert.alert('비밀번호 오류', '비밀번호는 6자 이상이어야 해요.');
       } else {
         Alert.alert('오류', msg);
       }
@@ -95,20 +97,19 @@ export default function LoginScreen() {
                 style={styles.input}
                 value={displayName}
                 onChangeText={setDisplayName}
-                placeholder="닉네임 (예: 현지)"
+                placeholder="닉네임 (예: 푸드마스터)"
                 placeholderTextColor="#bbb"
-                autoCapitalize="none"
                 returnKeyType="next"
               />
             )}
             <TextInput
               style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="이메일"
+              value={loginId}
+              onChangeText={setLoginId}
+              placeholder="아이디 (영문/숫자, 예: foodmaster)"
               placeholderTextColor="#bbb"
               autoCapitalize="none"
-              keyboardType="email-address"
+              autoCorrect={false}
               returnKeyType="next"
             />
             <TextInput
@@ -121,6 +122,11 @@ export default function LoginScreen() {
               returnKeyType="done"
               onSubmitEditing={handleSubmit}
             />
+            {mode === 'signup' && (
+              <Text style={styles.notice}>
+                ⚠️ 개인 이메일·비밀번호 말고{'\n'}새 아이디와 비밀번호를 만들어 쓰세요!
+              </Text>
+            )}
 
             <Pressable
               onPress={handleSubmit}
@@ -184,5 +190,16 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  notice: {
+    fontSize: 12,
+    color: '#E17055',
+    lineHeight: 18,
+    textAlign: 'center',
+    backgroundColor: '#FFF4F0',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 2,
+  },
   hint: { textAlign: 'center', fontSize: 13, color: '#bbb', marginTop: 8 },
 });

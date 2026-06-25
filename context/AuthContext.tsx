@@ -1,6 +1,6 @@
 import { Session, User } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { isAdminEmail } from '@/lib/admin';
+import { emailFromId, isAdminEmail } from '@/lib/admin';
 import { supabase } from '@/lib/supabase';
 
 interface AuthContextType {
@@ -9,8 +9,8 @@ interface AuthContextType {
   loading: boolean;
   displayName: string;
   isAdmin: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  signIn: (id: string, password: string) => Promise<void>;
+  signUp: (id: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -55,14 +55,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
   }, [user?.id, displayName, isAdmin]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const signIn = useCallback(async (id: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: emailFromId(id),
+      password,
+    });
     if (error) throw new Error(error.message);
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, name: string) => {
+  const signUp = useCallback(async (id: string, password: string, name: string) => {
     const { error } = await supabase.auth.signUp({
-      email,
+      email: emailFromId(id),
       password,
       options: { data: { display_name: name } },
     });
