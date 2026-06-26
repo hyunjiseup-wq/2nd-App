@@ -70,8 +70,8 @@ export default function LoginScreen() {
           {/* 로고 */}
           <View style={styles.logoArea}>
             <Text style={styles.logoEmoji}>🍽️</Text>
-            <Text style={styles.logoTitle}>서울 맛집 리스트</Text>
-            <Text style={styles.logoSub}>나만의 서울 맛집을 기록하고 공유하세요</Text>
+            <Text style={styles.logoTitle}>맛담</Text>
+            <Text style={styles.logoSub}>맛집을 담고, 친구와 나누는 공간</Text>
           </View>
 
           {/* 탭 */}

@@ -51,7 +51,7 @@ function RootNavigator() {
       <Stack.Screen
         name="index"
         options={{
-          title: '🍽️ 내 맛집 리스트',
+          title: '🍽️ 맛담',
           headerLeft: () => (
             <Pressable
               onPress={signOut}
