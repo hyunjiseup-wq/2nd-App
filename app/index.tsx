@@ -112,14 +112,6 @@ export default function HomeScreen() {
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
       />
-
-      {/* 맛집 추가 FAB */}
-      <Pressable
-        style={({ pressed }) => [styles.fab, pressed && { opacity: 0.85 }]}
-        onPress={() => router.push('/form')}
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </Pressable>
     </SafeAreaView>
   );
 }
@@ -171,20 +163,4 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   emptyBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  fab: {
-    position: 'absolute',
-    bottom: 28,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#FF7A45',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#FF7A45',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
 });

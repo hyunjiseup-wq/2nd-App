@@ -151,7 +151,7 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F5F5F5' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  list: { padding: 16, gap: 8 },
+  list: { padding: 16, paddingBottom: 96, gap: 8 },
   header: { fontSize: 14, color: '#888', lineHeight: 20, marginBottom: 8, paddingHorizontal: 2 },
   userCard: {
     flexDirection: 'row',

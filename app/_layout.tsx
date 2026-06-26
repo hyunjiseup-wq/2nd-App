@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import BottomTabBar from '@/components/BottomTabBar';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { RestaurantProvider } from '@/context/RestaurantContext';
 
@@ -39,6 +40,7 @@ function RootNavigator() {
   }
 
   return (
+    <View style={{ flex: 1 }}>
     <Stack
       screenOptions={{
         headerStyle: { backgroundColor: '#FF7A45' },
@@ -67,9 +69,6 @@ function RootNavigator() {
               {isAdmin && (
                 <HeaderIcon name="mail-outline" onPress={() => router.push('/admin/feedback' as any)} />
               )}
-              <HeaderIcon name="restaurant-outline" onPress={() => router.push('/discover' as any)} />
-              <HeaderIcon name="compass-outline" onPress={() => router.push('/explore' as any)} />
-              <HeaderIcon name="person-circle-outline" onPress={() => router.push('/profile' as any)} />
               <HeaderIcon name="chatbubble-outline" onPress={() => router.push('/feedback' as any)} />
             </View>
           ),
@@ -93,6 +92,8 @@ function RootNavigator() {
       <Stack.Screen name="review/[id]" options={{ title: '리뷰 작성', presentation: 'modal' }} />
       <Stack.Screen name="admin/feedback" options={{ title: '받은 피드백' }} />
     </Stack>
+    <BottomTabBar />
+    </View>
   );
 }
 

@@ -170,7 +170,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F5F5F5' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 16, paddingBottom: 40 },
+  content: { padding: 16, paddingBottom: 96 },
   avatarArea: { alignItems: 'center', marginBottom: 20, marginTop: 8 },
   avatar: {
     width: 80,

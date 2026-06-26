@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SearchBar from '@/components/SearchBar';
-import { CATEGORY_BG, CATEGORY_COLORS } from '@/constants/filters';
 import { useRestaurants } from '@/context/RestaurantContext';
 import { DiscoverItem, DiscoverSort, OwnerRef, Profile } from '@/types/restaurant';
 
@@ -46,82 +45,114 @@ function Stars({ value }: { value: number }) {
   );
 }
 
-function OwnerChips({ owners, onPress }: { owners: OwnerRef[]; onPress: (id: string) => void }) {
+function OwnerAvatars({ owners, onPress }: { owners: OwnerRef[]; onPress: (id: string) => void }) {
   if (owners.length === 0) return null;
   return (
-    <View style={styles.ownerRow}>
-      <Text style={styles.ownerLabel}>👥 담은 사람</Text>
-      {owners.map((o, i) => (
-        <Pressable
-          key={o.id}
-          onPress={(e) => {
-            e.stopPropagation();
-            onPress(o.id);
-          }}
-          style={[styles.ownerChip, o.is_admin && styles.ownerChipAdmin]}
-          hitSlop={4}
-        >
-          {i === 0 && <Text style={styles.crown}>👑</Text>}
-          <Text style={[styles.ownerChipText, o.is_admin && { color: '#FF7A45' }]} numberOfLines={1}>
-            {o.display_name}
-          </Text>
-          {o.like_count > 0 && <Text style={styles.ownerLike}>❤️{o.like_count}</Text>}
-        </Pressable>
-      ))}
+    <View style={styles.ownerSection}>
+      <Text style={styles.ownerHeading}>👑 이 맛집을 담은 인기 유저 TOP{owners.length}</Text>
+      <View style={styles.ownerList}>
+        {owners.map((o) => (
+          <Pressable
+            key={o.id}
+            style={styles.ownerItem}
+            onPress={(e) => {
+              e.stopPropagation();
+              onPress(o.id);
+            }}
+            hitSlop={4}
+          >
+            <View style={[styles.ownerAvatar, o.is_admin && { backgroundColor: '#FF7A45' }]}>
+              <Text style={styles.ownerAvatarText}>{o.display_name[0] ?? '?'}</Text>
+            </View>
+            <Text style={styles.ownerName} numberOfLines={1}>{o.display_name}</Text>
+            {o.like_count > 0 && <Text style={styles.ownerLike}>❤️ {o.like_count}</Text>}
+          </Pressable>
+        ))}
+        <View style={styles.ownerArrow}>
+          <Ionicons name="chevron-forward" size={18} color="#ccc" />
+        </View>
+      </View>
     </View>
   );
 }
 
-function DiscoverCard({ item, onOpen, onOwner }: { item: DiscoverItem; onOpen: () => void; onOwner: (id: string) => void }) {
-  const catColor = item.category ? CATEGORY_COLORS[item.category] ?? '#888' : '#888';
-  const catBg = item.category ? CATEGORY_BG[item.category] ?? '#f5f5f5' : '#f5f5f5';
+function DiscoverCard({
+  item,
+  onOpen,
+  onOwner,
+  onSave,
+  saved,
+}: {
+  item: DiscoverItem;
+  onOpen: () => void;
+  onOwner: (id: string) => void;
+  onSave: () => void;
+  saved: boolean;
+}) {
+  const sub = [item.area, item.category].filter(Boolean).join(' · ');
   return (
-    <Pressable onPress={onOpen} style={({ pressed }) => [styles.card, pressed && { opacity: 0.92 }]}>
-      <View style={styles.cardTop}>
-        <View style={{ flex: 1 }}>
-          <View style={styles.badges}>
-            {item.category && (
-              <View style={[styles.badge, { backgroundColor: catBg }]}>
-                <Text style={[styles.badgeText, { color: catColor }]}>{item.category}</Text>
-              </View>
-            )}
-            {item.area && (
-              <View style={styles.areaBadge}>
-                <Text style={styles.areaBadgeText}>📍 {item.area}</Text>
-              </View>
-            )}
+    <Pressable onPress={onOpen} style={({ pressed }) => [styles.card, pressed && { opacity: 0.96 }]}>
+      {/* 대표 사진 */}
+      <View style={styles.imageWrap}>
+        {item.image_url ? (
+          <Image source={{ uri: item.image_url }} style={styles.image} />
+        ) : (
+          <View style={[styles.image, styles.imagePlaceholder]}>
+            <Ionicons name="restaurant" size={34} color="#fff" />
           </View>
-          <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-          <View style={styles.metaRow}>
-            {item.reviewCount > 0 ? (
-              <View style={styles.metaItem}>
-                <Stars value={item.avgRating} />
-                <Text style={styles.metaText}>{item.avgRating.toFixed(1)} ({item.reviewCount})</Text>
-              </View>
-            ) : (
-              <Text style={styles.metaMuted}>리뷰 없음</Text>
-            )}
-            <Text style={styles.metaDot}>·</Text>
-            <Text style={styles.metaStrong}>👥 {item.addedCount}명</Text>
-            <Text style={styles.metaDot}>·</Text>
-            <Text style={styles.metaText}>👣 {item.visitedCount}</Text>
+        )}
+        {item.reviewCount > 0 && (
+          <View style={styles.ratingBadge}>
+            <Ionicons name="star" size={12} color="#FDCB6E" />
+            <Text style={styles.ratingBadgeText}>{item.avgRating.toFixed(1)}</Text>
+          </View>
+        )}
+        <Pressable
+          style={styles.bookmark}
+          onPress={(e) => {
+            e.stopPropagation();
+            if (!saved) onSave();
+          }}
+          hitSlop={6}
+        >
+          <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? '#FF7A45' : '#fff'} />
+        </Pressable>
+      </View>
+
+      {/* 본문 */}
+      <View style={styles.body}>
+        <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+        {sub ? <Text style={styles.sub}>{sub}</Text> : null}
+
+        <View style={styles.metaRow}>
+          {item.reviewCount > 0 ? (
+            <View style={styles.metaItem}>
+              <Stars value={item.avgRating} />
+              <Text style={styles.metaText}>{item.avgRating.toFixed(1)} ({item.reviewCount})</Text>
+            </View>
+          ) : (
+            <Text style={styles.metaMuted}>리뷰 없음</Text>
+          )}
+          <View style={styles.addedPill}>
+            <Text style={styles.addedPillText}>👥 {item.addedCount}명이 담음</Text>
           </View>
         </View>
-        {item.image_url ? <Image source={{ uri: item.image_url }} style={styles.thumb} /> : null}
+
+        <OwnerAvatars owners={item.topOwners} onPress={onOwner} />
       </View>
-      <OwnerChips owners={item.topOwners} onPress={onOwner} />
     </Pressable>
   );
 }
 
 export default function DiscoverScreen() {
   const router = useRouter();
-  const { getDiscoverFeed, getUsers } = useRestaurants();
+  const { getDiscoverFeed, getUsers, fetchRestaurantById, copyRestaurant, restaurants } = useRestaurants();
   const [feed, setFeed] = useState<DiscoverItem[]>([]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [sort, setSort] = useState<DiscoverSort>('popular');
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -137,6 +168,25 @@ export default function DiscoverScreen() {
   }, [getDiscoverFeed, getUsers]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const myNames = useMemo(() => new Set(restaurants.map((r) => r.name)), [restaurants]);
+
+  const handleSave = useCallback(
+    async (item: DiscoverItem) => {
+      setSavedKeys((prev) => new Set(prev).add(item.key)); // 낙관적
+      try {
+        const full = await fetchRestaurantById(item.representativeId);
+        if (full) await copyRestaurant(full);
+      } catch {
+        setSavedKeys((prev) => {
+          const n = new Set(prev);
+          n.delete(item.key);
+          return n;
+        });
+      }
+    },
+    [fetchRestaurantById, copyRestaurant],
+  );
 
   const q = query.trim().toLowerCase();
 
@@ -172,13 +222,14 @@ export default function DiscoverScreen() {
             item={item}
             onOpen={() => router.push(`/detail/${item.representativeId}` as any)}
             onOwner={(id) => router.push(`/user/${id}` as any)}
+            onSave={() => handleSave(item)}
+            saved={savedKeys.has(item.key) || myNames.has(item.name)}
           />
         )}
         ListHeaderComponent={
           <>
             <SearchBar value={query} onChangeText={setQuery} placeholder="맛집·지역·사용자 검색" />
 
-            {/* 사용자 검색 결과 */}
             {userMatches.length > 0 && (
               <View style={styles.userSection}>
                 <Text style={styles.sectionLabel}>👤 사용자</Text>
@@ -195,7 +246,6 @@ export default function DiscoverScreen() {
               </View>
             )}
 
-            {/* 정렬 탭 */}
             <View style={styles.sortRow}>
               {SORTS.map((s) => (
                 <Pressable
@@ -224,7 +274,7 @@ export default function DiscoverScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F5F5F5' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  list: { paddingBottom: 40 },
+  list: { paddingBottom: 96 },
   userSection: { marginTop: 4 },
   sectionLabel: { fontSize: 13, fontWeight: '700', color: '#888', paddingHorizontal: 16, marginBottom: 6 },
   userScroll: { paddingHorizontal: 16, gap: 10, flexDirection: 'row' },
@@ -243,37 +293,48 @@ const styles = StyleSheet.create({
   sortChipActive: { backgroundColor: '#6C5CE7', borderColor: '#6C5CE7' },
   sortText: { fontSize: 13, color: '#555', fontWeight: '600' },
   sortTextActive: { color: '#fff' },
+
+  // 카드 (큰 사진형)
   card: {
-    backgroundColor: '#fff', marginHorizontal: 16, marginVertical: 5, borderRadius: 14, padding: 14,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 5, elevation: 2,
+    backgroundColor: '#fff', marginHorizontal: 16, marginVertical: 6, borderRadius: 16, overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
   },
-  cardTop: { flexDirection: 'row', gap: 10 },
-  badges: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 5 },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  badgeText: { fontSize: 12, fontWeight: '600' },
-  areaBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: '#f0f0f0' },
-  areaBadgeText: { fontSize: 12, color: '#666' },
-  name: { fontSize: 17, fontWeight: '700', color: '#1a1a1a', marginBottom: 5 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
+  imageWrap: { width: '100%', height: 168, backgroundColor: '#eee' },
+  image: { width: '100%', height: '100%' },
+  imagePlaceholder: { backgroundColor: '#FFB48A', alignItems: 'center', justifyContent: 'center' },
+  ratingBadge: {
+    position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20,
+  },
+  ratingBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  bookmark: {
+    position: 'absolute', top: 8, right: 8, width: 34, height: 34, borderRadius: 17,
+    backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center',
+  },
+  body: { padding: 14 },
+  name: { fontSize: 18, fontWeight: '800', color: '#1a1a1a' },
+  sub: { fontSize: 13, color: '#888', marginTop: 3 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, gap: 8 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaText: { fontSize: 12, color: '#888' },
-  metaStrong: { fontSize: 12, color: '#FF7A45', fontWeight: '700' },
   metaMuted: { fontSize: 12, color: '#bbb' },
-  metaDot: { fontSize: 12, color: '#ddd' },
-  thumb: { width: 72, height: 72, borderRadius: 10, backgroundColor: '#f0f0f0', flexShrink: 0 },
-  ownerRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap',
-    marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f5f5f5',
+  addedPill: { backgroundColor: '#FFF0E8', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  addedPillText: { fontSize: 12, color: '#FF7A45', fontWeight: '700' },
+
+  // 담은 유저 TOP3
+  ownerSection: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#f5f5f5', paddingTop: 10 },
+  ownerHeading: { fontSize: 12, color: '#888', fontWeight: '600', marginBottom: 8 },
+  ownerList: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  ownerItem: { alignItems: 'center', width: 56 },
+  ownerAvatar: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: '#6C5CE7',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 3,
   },
-  ownerLabel: { fontSize: 11, color: '#aaa', fontWeight: '600' },
-  ownerChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: '#F3F0FF', borderRadius: 20, paddingHorizontal: 9, paddingVertical: 4, maxWidth: 130,
-  },
-  ownerChipAdmin: { backgroundColor: '#FFF0E8' },
-  crown: { fontSize: 10 },
-  ownerChipText: { fontSize: 12, color: '#6C5CE7', fontWeight: '600' },
-  ownerLike: { fontSize: 10, color: '#999' },
+  ownerAvatarText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  ownerName: { fontSize: 11, color: '#555', maxWidth: 56 },
+  ownerLike: { fontSize: 10, color: '#aaa', marginTop: 1 },
+  ownerArrow: { flex: 1, alignItems: 'flex-end', justifyContent: 'center', alignSelf: 'center' },
+
   emptyBox: { alignItems: 'center', paddingTop: 60 },
   emptySub: { fontSize: 14, color: '#aaa' },
 });
