@@ -59,7 +59,7 @@ interface RestaurantContextType {
   getDiscoverFeed: () => Promise<DiscoverItem[]>;
   getMyInfluence: () => Promise<MyInfluence>;
   getProfile: (userId: string) => Promise<Profile | null>;
-  updateProfile: (patch: { display_name?: string; bio?: string; sns_url?: string }) => Promise<void>;
+  updateProfile: (patch: { display_name?: string; bio?: string; sns_url?: string; avatar_url?: string }) => Promise<void>;
   likeList: (ownerId: string) => Promise<void>;
   unlikeList: (ownerId: string) => Promise<void>;
   incrementProfileView: (ownerId: string) => Promise<void>;
@@ -514,7 +514,7 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   const getDiscoverFeed = useCallback(async (): Promise<DiscoverItem[]> => {
     const [rowsRes, profsRes, likesRes, reviewsRes] = await Promise.all([
       supabase.from('seoul_restaurants').select(RESTAURANT_COLUMNS),
-      supabase.from('profiles').select('id, display_name, is_admin, sns_url'),
+      supabase.from('profiles').select('id, display_name, is_admin, sns_url, avatar_url'),
       supabase.from('list_likes').select('owner_id'),
       supabase.from('restaurant_reviews').select('restaurant_id, rating'),
     ]);
@@ -526,7 +526,7 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
     }
 
     // 프로필 맵
-    type ProfRow = { id: string; display_name: string; is_admin: boolean; sns_url: string | null };
+    type ProfRow = { id: string; display_name: string; is_admin: boolean; sns_url: string | null; avatar_url: string | null };
     const profMap = new Map<string, ProfRow>();
     for (const p of (profsRes.data ?? []) as ProfRow[]) profMap.set(p.id, p);
 
@@ -574,6 +574,7 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
             is_admin: p?.is_admin ?? false,
             like_count: likeCount.get(oid) ?? 0,
             sns_url: p?.sns_url ?? undefined,
+            avatar_url: p?.avatar_url ?? undefined,
           };
         })
         .sort((a, b) => b.like_count - a.like_count || a.display_name.localeCompare(b.display_name));
@@ -661,7 +662,7 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const updateProfile = useCallback(
-    async (patch: { display_name?: string; bio?: string; sns_url?: string }) => {
+    async (patch: { display_name?: string; bio?: string; sns_url?: string; avatar_url?: string }) => {
       if (!userId) throw new Error('로그인이 필요합니다');
       const { error: err } = await supabase
         .from('profiles')
@@ -669,6 +670,7 @@ export function RestaurantProvider({ children }: { children: React.ReactNode }) 
           ...(patch.display_name !== undefined && { display_name: patch.display_name }),
           ...(patch.bio !== undefined && { bio: patch.bio || null }),
           ...(patch.sns_url !== undefined && { sns_url: patch.sns_url || null }),
+          ...(patch.avatar_url !== undefined && { avatar_url: patch.avatar_url || null }),
         })
         .eq('id', userId);
       if (err) throw new Error(err.message);

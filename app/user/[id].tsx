@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Avatar from '@/components/Avatar';
 import RestaurantCard from '@/components/RestaurantCard';
 import SearchBar from '@/components/SearchBar';
 import { notify } from '@/lib/confirm';
@@ -136,9 +137,7 @@ export default function UserListScreen() {
             {owner && (
               <View style={styles.profileCard}>
                 <View style={styles.profileTop}>
-                  <View style={[styles.avatar, owner.is_admin && styles.avatarAdmin]}>
-                    <Text style={styles.avatarText}>{owner.display_name[0] ?? '?'}</Text>
-                  </View>
+                  <Avatar uri={owner.avatar_url} name={owner.display_name} size={52} admin={owner.is_admin} />
                   <View style={{ flex: 1 }}>
                     <View style={styles.nameRow}>
                       <Text style={styles.ownerName}>{owner.display_name}</Text>

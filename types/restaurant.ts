@@ -37,6 +37,7 @@ export interface Profile {
   is_admin: boolean;
   bio?: string;
   sns_url?: string;
+  avatar_url?: string;
   view_count?: number;
   created_at: string;
   count?: number;      // 보유 맛집 수 (클라이언트 계산)
@@ -82,6 +83,7 @@ export interface OwnerRef {
   is_admin: boolean;
   like_count: number;
   sns_url?: string;
+  avatar_url?: string;
 }
 
 export interface DiscoverItem {

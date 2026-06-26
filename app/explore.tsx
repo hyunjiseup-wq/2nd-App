@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Avatar from '@/components/Avatar';
 import { useAuth } from '@/context/AuthContext';
 import { useRestaurants } from '@/context/RestaurantContext';
 import { Profile } from '@/types/restaurant';
@@ -77,9 +78,7 @@ export default function ExploreScreen() {
               style={({ pressed }) => [styles.userCard, pressed && { opacity: 0.9 }]}
               onPress={() => router.push(`/user/${item.id}` as any)}
             >
-              <View style={[styles.avatar, item.is_admin && styles.avatarAdmin]}>
-                <Text style={styles.avatarText}>{item.display_name[0] ?? '?'}</Text>
-              </View>
+              <Avatar uri={item.avatar_url} name={item.display_name} size={44} admin={item.is_admin} />
               <View style={styles.userInfo}>
                 <View style={styles.nameRow}>
                   <Text style={styles.userName}>

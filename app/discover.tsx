@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Avatar from '@/components/Avatar';
 import SearchBar from '@/components/SearchBar';
 import { useRestaurants } from '@/context/RestaurantContext';
 import { DiscoverItem, DiscoverSort, OwnerRef, Profile } from '@/types/restaurant';
@@ -61,9 +62,7 @@ function OwnerAvatars({ owners, onPress }: { owners: OwnerRef[]; onPress: (id: s
             }}
             hitSlop={4}
           >
-            <View style={[styles.ownerAvatar, o.is_admin && { backgroundColor: '#FF7A45' }]}>
-              <Text style={styles.ownerAvatarText}>{o.display_name[0] ?? '?'}</Text>
-            </View>
+            <Avatar uri={o.avatar_url} name={o.display_name} size={40} admin={o.is_admin} style={{ marginBottom: 3 }} />
             <Text style={styles.ownerName} numberOfLines={1}>{o.display_name}</Text>
             {o.like_count > 0 && <Text style={styles.ownerLike}>❤️ {o.like_count}</Text>}
           </Pressable>
@@ -236,9 +235,7 @@ export default function DiscoverScreen() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.userScroll}>
                   {userMatches.map((u) => (
                     <Pressable key={u.id} style={styles.userChip} onPress={() => router.push(`/user/${u.id}` as any)}>
-                      <View style={[styles.userAvatar, u.is_admin && { backgroundColor: '#FF7A45' }]}>
-                        <Text style={styles.userAvatarText}>{u.display_name[0] ?? '?'}</Text>
-                      </View>
+                      <Avatar uri={u.avatar_url} name={u.display_name} size={46} admin={u.is_admin} style={{ marginBottom: 4 }} />
                       <Text style={styles.userChipText} numberOfLines={1}>{u.display_name}</Text>
                     </Pressable>
                   ))}

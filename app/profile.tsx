@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Avatar from '@/components/Avatar';
 import { notify } from '@/lib/confirm';
 import { useAuth } from '@/context/AuthContext';
 import { useRestaurants } from '@/context/RestaurantContext';
@@ -21,14 +22,16 @@ import { MyInfluence } from '@/types/restaurant';
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, displayName } = useAuth();
-  const { getProfile, updateProfile, getMyInfluence } = useRestaurants();
+  const { getProfile, updateProfile, getMyInfluence, uploadPhoto } = useRestaurants();
 
   const [name, setName] = useState(displayName);
   const [bio, setBio] = useState('');
   const [snsUrl, setSnsUrl] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [influence, setInfluence] = useState<MyInfluence | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -38,11 +41,37 @@ export default function ProfileScreen() {
         setName(p.display_name ?? displayName);
         setBio(p.bio ?? '');
         setSnsUrl(p.sns_url ?? '');
+        setAvatarUrl(p.avatar_url ?? '');
       }
       setInfluence(inf);
       setLoading(false);
     })();
   }, [user, getProfile, getMyInfluence]);
+
+  function pickAvatar() {
+    if (Platform.OS !== 'web') {
+      notify('안내', '프로필 사진 업로드는 웹에서 가능해요.');
+      return;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setUploadingAvatar(true);
+      try {
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        const url = await uploadPhoto(file, ext);
+        setAvatarUrl(url);
+      } catch (e: any) {
+        notify('업로드 실패', e.message ?? '다시 시도해주세요.');
+      } finally {
+        setUploadingAvatar(false);
+      }
+    };
+    input.click();
+  }
 
   async function handleSave() {
     if (!name.trim()) {
@@ -51,7 +80,7 @@ export default function ProfileScreen() {
     }
     setSaving(true);
     try {
-      await updateProfile({ display_name: name.trim(), bio: bio.trim(), sns_url: snsUrl.trim() });
+      await updateProfile({ display_name: name.trim(), bio: bio.trim(), sns_url: snsUrl.trim(), avatar_url: avatarUrl.trim() });
       notify('저장 완료!', '프로필이 업데이트됐어요.');
       router.back();
     } catch (e: any) {
@@ -74,9 +103,20 @@ export default function ProfileScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.avatarArea}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{(name[0] ?? '?').toUpperCase()}</Text>
-            </View>
+            <Pressable onPress={pickAvatar} disabled={uploadingAvatar}>
+              <Avatar uri={avatarUrl} name={name} size={88} />
+              <View style={styles.cameraBadge}>
+                <Ionicons name={uploadingAvatar ? 'hourglass-outline' : 'camera'} size={16} color="#fff" />
+              </View>
+            </Pressable>
+            <Text style={styles.avatarHint}>
+              {uploadingAvatar ? '업로드 중...' : '탭하여 프로필 사진 변경'}
+            </Text>
+            {avatarUrl ? (
+              <Pressable onPress={() => setAvatarUrl('')} hitSlop={6}>
+                <Text style={styles.avatarRemove}>사진 제거</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           {/* 인플루언서 지표 */}
@@ -171,16 +211,22 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F5F5F5' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 16, paddingBottom: 96 },
-  avatarArea: { alignItems: 'center', marginBottom: 20, marginTop: 8 },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  avatarArea: { alignItems: 'center', marginBottom: 20, marginTop: 8, gap: 6 },
+  cameraBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: '#FF7A45',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#F5F5F5',
   },
-  avatarText: { color: '#fff', fontSize: 34, fontWeight: '800' },
+  avatarHint: { fontSize: 12, color: '#999' },
+  avatarRemove: { fontSize: 12, color: '#FF7A45', fontWeight: '600' },
   influCard: {
     backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 8,
     borderWidth: 1, borderColor: '#FFE4D6',
