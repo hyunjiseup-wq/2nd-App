@@ -7,7 +7,7 @@ React Native(Expo)로 만든 **개인별 맛집 리스트 공유 앱**입니다.
 
 데이터는 **Supabase**(PostgreSQL)에 저장되고, 웹은 **Vercel**로 배포됩니다.
 
-🔗 **데모:** https://2nd-app-green.vercel.app
+🔗 **데모:** https://matdam-official.vercel.app
 
 ---
 

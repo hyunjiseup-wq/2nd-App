@@ -21,7 +21,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRestaurants } from '@/context/RestaurantContext';
 import { Profile, Restaurant } from '@/types/restaurant';
 
-const SITE = 'https://2nd-app-green.vercel.app';
+const SITE = 'https://matdam-official.vercel.app';
 
 export default function UserListScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
