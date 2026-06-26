@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Avatar from '@/components/Avatar';
 import SearchBar from '@/components/SearchBar';
+import { PROVINCES, inferDistrictFromAddress, inferProvinceFromAddress } from '@/constants/filters';
 import { useRestaurants } from '@/context/RestaurantContext';
 import { DiscoverItem, DiscoverSort, OwnerRef, Profile } from '@/types/restaurant';
 
@@ -150,6 +151,8 @@ export default function DiscoverScreen() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [sort, setSort] = useState<DiscoverSort>('popular');
   const [query, setQuery] = useState('');
+  const [province, setProvince] = useState<string | null>(null);
+  const [district, setDistrict] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set());
 
@@ -194,14 +197,41 @@ export default function DiscoverScreen() {
     return users.filter((u) => u.display_name.toLowerCase().includes(q)).slice(0, 8);
   }, [users, q]);
 
+  // 데이터에 실제로 존재하는 시/도만 노출
+  const provinces = useMemo(() => {
+    const set = new Set<string>();
+    feed.forEach((it) => {
+      const p = inferProvinceFromAddress(it.address);
+      if (p) set.add(p);
+    });
+    return PROVINCES.filter((p) => set.has(p));
+  }, [feed]);
+
+  // 선택한 시/도 안의 구 목록
+  const districts = useMemo(() => {
+    const set = new Set<string>();
+    feed.forEach((it) => {
+      if (province && !(it.address ?? '').includes(province)) return;
+      const d = inferDistrictFromAddress(it.address);
+      if (d) set.add(d);
+    });
+    return Array.from(set).sort();
+  }, [feed, province]);
+
   const visible = useMemo(() => {
-    const filtered = q
-      ? feed.filter((it) =>
-          `${it.name} ${it.area ?? ''} ${it.category ?? ''} ${it.address ?? ''}`.toLowerCase().includes(q),
-        )
-      : feed;
+    const filtered = feed.filter((it) => {
+      if (q && !`${it.name} ${it.area ?? ''} ${it.category ?? ''} ${it.address ?? ''}`.toLowerCase().includes(q))
+        return false;
+      if (province && !(it.address ?? '').includes(province)) return false;
+      if (district) {
+        const inDist = it.address?.includes(district);
+        const inArea = it.area === district;
+        if (!inDist && !inArea) return false;
+      }
+      return true;
+    });
     return sortFeed(filtered, sort);
-  }, [feed, q, sort]);
+  }, [feed, q, province, district, sort]);
 
   if (loading) {
     return (
@@ -243,6 +273,48 @@ export default function DiscoverScreen() {
               </View>
             )}
 
+            {/* 지역 필터 (데이터에 있는 시/도만 노출) */}
+            {provinces.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.regionRow}>
+                <Pressable
+                  onPress={() => { setProvince(null); setDistrict(null); }}
+                  style={[styles.regionChip, province === null && styles.regionChipActive]}
+                >
+                  <Text style={[styles.regionText, province === null && styles.regionTextActive]}>전체 지역</Text>
+                </Pressable>
+                {provinces.map((p) => (
+                  <Pressable
+                    key={p}
+                    onPress={() => { setProvince(province === p ? null : p); setDistrict(null); }}
+                    style={[styles.regionChip, province === p && styles.regionChipActive]}
+                  >
+                    <Text style={[styles.regionText, province === p && styles.regionTextActive]}>{p}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+
+            {/* 구 (시/도 선택 시) */}
+            {province && districts.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.regionRow}>
+                <Pressable
+                  onPress={() => setDistrict(null)}
+                  style={[styles.regionChip, styles.districtChip, district === null && styles.districtChipActive]}
+                >
+                  <Text style={[styles.regionText, district === null && styles.regionTextActive]}>{province} 전체</Text>
+                </Pressable>
+                {districts.map((d) => (
+                  <Pressable
+                    key={d}
+                    onPress={() => setDistrict(district === d ? null : d)}
+                    style={[styles.regionChip, styles.districtChip, district === d && styles.districtChipActive]}
+                  >
+                    <Text style={[styles.regionText, district === d && styles.regionTextActive]}>{d}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+
             <View style={styles.sortRow}>
               {SORTS.map((s) => (
                 <Pressable
@@ -282,6 +354,16 @@ const styles = StyleSheet.create({
   },
   userAvatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   userChipText: { fontSize: 12, color: '#555', maxWidth: 60 },
+  regionRow: { paddingHorizontal: 16, paddingVertical: 4, gap: 8, flexDirection: 'row', alignItems: 'center' },
+  regionChip: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#ddd',
+    backgroundColor: '#fff',
+  },
+  regionChipActive: { backgroundColor: '#FF7A45', borderColor: '#FF7A45' },
+  districtChip: {},
+  districtChipActive: { backgroundColor: '#E17055', borderColor: '#E17055' },
+  regionText: { fontSize: 13, color: '#555' },
+  regionTextActive: { color: '#fff', fontWeight: '600' },
   sortRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
   sortChip: {
     flex: 1, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: '#ddd',
